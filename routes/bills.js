@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const Bill = require('../models/Bill');
 const Product = require('../models/Product');
 
@@ -26,11 +27,17 @@ router.get('/:id', async (req, res) => {
 
 // Create a bill and reduce stock
 router.post('/', async (req, res) => {
-  const session = await Bill.startSession();
-  session.startTransaction();
+  let session = null;
+  try {
+    session = await mongoose.startSession();
+    session.startTransaction();
+  } catch (error) {
+    // Fall back to non-transaction flow if standalone MongoDB doesn't support sessions
+    session = null;
+  }
   
   try {
-    const { products, totalAmount } = req.body;
+    const { customerName, products, totalAmount } = req.body;
     
     // Generate bill number (simple logic: current timestamp)
     const billNumber = `INV-${Date.now()}`;
@@ -38,15 +45,23 @@ router.post('/', async (req, res) => {
     // Create new bill
     const newBill = new Bill({
       billNumber,
+      customerName,
       products,
       totalAmount
     });
     
-    await newBill.save({ session });
+    if (session) {
+      await newBill.save({ session });
+    } else {
+      await newBill.save();
+    }
     
     // Reduce stock for each product
     for (const item of products) {
-      const product = await Product.findById(item.product).session(session);
+      const product = session
+        ? await Product.findById(item.product).session(session)
+        : await Product.findById(item.product);
+        
       if (!product) {
         throw new Error(`Product ${item.name} not found`);
       }
@@ -56,16 +71,24 @@ router.post('/', async (req, res) => {
       }
       
       product.quantity -= item.quantity;
-      await product.save({ session });
+      if (session) {
+        await product.save({ session });
+      } else {
+        await product.save();
+      }
     }
     
-    await session.commitTransaction();
-    session.endSession();
+    if (session) {
+      await session.commitTransaction();
+      session.endSession();
+    }
     
     res.status(201).json(newBill);
   } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
+    if (session) {
+      await session.abortTransaction();
+      session.endSession();
+    }
     res.status(400).json({ message: error.message });
   }
 });
