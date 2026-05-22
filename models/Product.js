@@ -5,6 +5,9 @@ const productSchema = new mongoose.Schema({
   company: { type: String, required: true },
   purchasePrice: { type: Number, required: true },
   sellingPrice: { type: Number, required: true },
+  printPrice: { type: Number },
+  purchaseDiscount: { type: Number, default: 0 },
+  sellingDiscount: { type: Number, default: 0 },
   quantity: { type: Number, required: true },
   unit: { type: String, required: true },
 }, { timestamps: true });

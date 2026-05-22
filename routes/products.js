@@ -39,6 +39,13 @@ router.get('/:id', async (req, res) => {
 
 // Create a product
 router.post('/', async (req, res) => {
+  if (req.body.printPrice !== undefined) {
+    const printPrice = parseFloat(req.body.printPrice) || 0;
+    const purchaseDiscount = parseFloat(req.body.purchaseDiscount) || 0;
+    const sellingDiscount = parseFloat(req.body.sellingDiscount) || 0;
+    req.body.purchasePrice = printPrice * (1 - purchaseDiscount / 100);
+    req.body.sellingPrice = printPrice * (1 - sellingDiscount / 100);
+  }
   const product = new Product(req.body);
   try {
     const newProduct = await product.save();
@@ -52,6 +59,13 @@ router.post('/', async (req, res) => {
 // Update a product
 router.put('/:id', async (req, res) => {
   try {
+    if (req.body.printPrice !== undefined) {
+      const printPrice = parseFloat(req.body.printPrice) || 0;
+      const purchaseDiscount = parseFloat(req.body.purchaseDiscount) || 0;
+      const sellingDiscount = parseFloat(req.body.sellingDiscount) || 0;
+      req.body.purchasePrice = printPrice * (1 - purchaseDiscount / 100);
+      req.body.sellingPrice = printPrice * (1 - sellingDiscount / 100);
+    }
     const updatedProduct = await Product.findByIdAndUpdate(
       req.params.id, 
       req.body, 
